@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Habitly | Build habits that stick</title>
+<style>
+:root{--bg:#fdf6ec;--card:#ffffff;--text:#2b2118;--muted:#8a7a6a;--accent:#0f9d8a;--accent-2:#f59e0b;--line:#eadfce;--bar:#bfe9e2;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14191c;--card:#1d252a;--text:#eef3f2;--muted:#8fa3a0;--accent:#2dd4bf;--accent-2:#fbbf24;--line:#2c373d;--bar:#21504a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14191c;--card:#1d252a;--text:#eef3f2;--muted:#8fa3a0;--accent:#2dd4bf;--accent-2:#fbbf24;--line:#2c373d;--bar:#21504a;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+.wrap{max-width:680px;margin:0 auto;padding:24px 16px 40px}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:2rem;color:var(--accent);letter-spacing:-.5px}
+h2{font-size:1.05rem;margin:0 0 12px}
+.icon-btn{background:var(--card);border:1px solid var(--line);border-radius:50%;width:42px;height:42px;font-size:1.2rem;cursor:pointer}
+.quote{margin:14px 0 20px;padding:12px 16px;border-left:4px solid var(--accent-2);background:var(--card);border-radius:8px;color:var(--muted);font-style:italic}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat,.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat b{display:block;font-size:1.5rem;color:var(--accent)}
+.stat span{font-size:.8rem;color:var(--muted)}
+section{margin-bottom:20px}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font-size:1rem}
+input:focus{outline:2px solid var(--accent)}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer;font-size:1rem}
+[data-theme="dark"] .btn{color:#06201c}
+.chart{display:flex;align-items:flex-end;gap:10px;height:140px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:.75rem;color:var(--muted)}
+.bar{width:100%;background:var(--bar);border-radius:6px 6px 0 0;min-height:4px;transition:height .3s}
+.col.today .bar{background:var(--accent-2)}
+.filters{display:flex;gap:8px;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:99px;padding:6px 14px;cursor:pointer}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.habit{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.habit .name{flex:1;font-weight:600}
+.habit.done .name{text-decoration:line-through;color:var(--muted)}
+.streak{font-size:.85rem;color:var(--accent-2);font-weight:600;white-space:nowrap}
+.check{width:28px;height:28px;accent-color:var(--accent);cursor:pointer}
+.del{background:none;border:0;color:var(--muted);font-size:1.1rem;cursor:pointer}
+.empty{text-align:center;color:var(--muted);padding:24px}
+footer{text-align:center;color:var(--muted);font-size:.85rem}
+footer button{background:none;border:0;color:var(--accent);cursor:pointer;text-decoration:underline;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Habitly</h1><button class="icon-btn" id="theme" aria-label="Toggle dark mode">🌙</button></header>
+<p class="quote" id="quote">Finding a good quote…</p>
+
+<div class="stats">
+<div class="stat"><b id="sDone">0/0</b><span>Done today</span></div>
+<div class="stat"><b id="sBest">0 days</b><span>Best streak</span></div>
+<div class="stat"><b id="sRate">0%</b><span>Week rate</span></div>
+</div>
+
+<section class="card"><h2>Add a habit</h2>
+<form id="form"><input id="name" placeholder="Habit name" maxlength="40" required><button class="btn">Add habit</button></form></section>
+
+<section class="card"><h2>This week</h2><div class="chart" id="chart"></div></section>
+
+<section><h2>Your habits</h2>
+<div class="filters" id="filters">
+<button class="chip on" data-f="all">All</button><button class="chip" data-f="done">Done today</button><button class="chip" data-f="pending">Pending</button></div>
+<div id="list"></div></section>
+
+<footer>Built with the CodGen Frontend Internship<br><button id="reset">Reset demo data</button></footer>
+</div>
+
+<script>
+const QUOTES=["We are what we repeatedly do.","Small steps every day add up.","Don't break the chain.","Discipline is choosing what you want most over what you want now.","Start where you are. Use what you have.","Consistency beats intensity."];
+const KEY="habitly-data";
+let habits=[],filter="all";
+const $=id=>document.getElementById(id);
+const dk=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return dk(d)};
+const today=()=>dk(new Date());
+
+function load(){try{habits=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){habits=[]}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(habits))}catch(e){}}
+
+function current(h){let n=0,i=h.done.includes(today())?0:1;while(h.done.includes(ago(i))){n++;i++}return n}
+function best(h){const s=[...new Set(h.done)].sort();let b=0,c=0,p=null;
+for(const d of s){const t=new Date(d+"T00:00:00");c=p&&(t-p)/864e5===1?c+1:1;p=t;b=Math.max(b,c)}return b}
+
+function render(){
+const t=today(),done=habits.filter(h=>h.done.includes(t)).length;
+$("sDone").textContent=done+"/"+habits.length;
+const b=habits.reduce((m,h)=>Math.max(m,best(h)),0);
+$("sBest").textContent=b+(b===1?" day":" days");
+let wk=0;const counts=[];
+for(let i=6;i>=0;i--){const c=habits.filter(h=>h.done.includes(ago(i))).length;counts.push([ago(i),c,i]);wk+=c}
+$("sRate").textContent=habits.length?Math.round(wk/(habits.length*7)*100)+"%":"0%";
+const max=Math.max(1,habits.length);
+$("chart").innerHTML=counts.map(([d,c,i])=>{
+const day=new Date(d+"T00:00:00").toLocaleDateString("en",{weekday:"short"});
+return `<div class="col ${i===0?"today":""}"><span>${c}</span><div class="bar" style="height:${c/max*100}%"></div><span>${day}</span></div>`}).join("");
+const shown=habits.filter(h=>filter==="all"||(filter==="done")===h.done.includes(t));
+$("list").innerHTML=shown.length?shown.map(h=>{const d=h.done.includes(t);
+return `<div class="card habit ${d?"done":""}"><input type="checkbox" class="check" data-id="${h.id}" ${d?"checked":""} aria-label="Mark done">
+<span class="name"></span><span class="streak">🔥 ${current(h)}</span><button class="del" data-del="${h.id}" aria-label="Delete">✕</button></div>`}).join("")
+:`<div class="card empty"><b>No habits yet</b><br>Add your first habit above and start a streak today.</div>`;
+[...document.querySelectorAll(".habit .name")].forEach((el,i)=>el.textContent=shown[i].name);
+}
+
+$("form").onsubmit=e=>{e.preventDefault();const n=$("name").value.trim();if(!n)return;
+habits.push({id:Date.now(),name:n,done:[]});$("name").value="";save();render()};
+$("list").onclick=e=>{const t=e.target,h=habits.find(x=>x.id==(t.dataset.id||t.dataset.del));if(!h)return;
+if(t.dataset.del){habits=habits.filter(x=>x!==h)}
+else{const d=today();h.done=h.done.includes(d)?h.done.filter(x=>x!==d):[...h.done,d]}
+save();render()};
+$("filters").onclick=e=>{if(!e.target.dataset.f)return;filter=e.target.dataset.f;
+document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c===e.target));render()};
+$("reset").onclick=()=>{habits=[
+{id:1,name:"Drink 2L water",done:[ago(0),ago(1),ago(2),ago(4)]},
+{id:2,name:"Read 20 pages",done:[ago(1),ago(2),ago(3)]},
+{id:3,name:"Morning walk",done:[ago(0),ago(1),ago(2),ago(3),ago(5)]}];save();render()};
+
+function setTheme(m){const r=document.documentElement;r.dataset.theme=m;$("theme").textContent=m==="dark"?"☀️":"🌙";try{localStorage.setItem("habitly-theme",m)}catch(e){}}
+$("theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+let th=null;try{th=localStorage.getItem("habitly-theme")}catch(e){}
+setTheme(th||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"));
+
+$("quote").textContent="“"+QUOTES[new Date().getDate()%QUOTES.length]+"”";
+load();render();
+</script>
+</body>
+</html>
